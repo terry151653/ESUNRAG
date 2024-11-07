@@ -6,7 +6,7 @@ with open(os.path.join('..', 'dataset', 'preliminary', 'ground_truths_example.js
     ground_truths = json.load(f)['ground_truths']
 
 # Load prediction data 
-with open(os.path.join('..', 'dataset', 'preliminary', 'pred_retrieve.json'), 'r', encoding='utf-8') as f:
+with open(os.path.join('..', 'dataset', 'preliminary', 'my_pred_retrieve.json'), 'r', encoding='utf-8') as f:
     predictions = json.load(f)['answers']
 
 # Calculate precision by comparing predictions with ground truths
@@ -16,6 +16,9 @@ total = len(predictions)
 for pred, truth in zip(predictions, ground_truths):
     if pred['retrieve'] == truth['retrieve']:
         correct += 1
+    else:
+        print(f"QID: {pred['qid']}")
+        print(f"Prediction: {pred['retrieve']}, Ground Truth: {truth['retrieve']}")
 
 precision = correct / total
 print(f"Precision: {precision:.4f}")

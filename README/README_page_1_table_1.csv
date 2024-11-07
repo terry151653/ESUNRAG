@@ -1,0 +1,23 @@
+Baseline 程式碼說明,
+"本次比賽提供 baseline 程式碼給參賽者做參考，在初賽中我們採⽤ BM25 作為資訊檢索的⽅法，參賽者可以基於
+這個 baseline 程式碼進⾏修改，並根據⾃⼰的需求進⾏調整，以提⾼效能和準確性，或者選擇其他資訊檢索⽅法
+來參賽。
+BM25 概述",
+"BM25 是⼀種常⽤的資訊檢索演算法，基於詞頻和⽂件的逆向⽂件頻率來計算⽂件與查詢的相關性。
+環境建立",
+,
+,
+1,pip install -r requirements.txt
+,
+Baseline使⽤⽅法：,
+以範例 150 題資料為例 (路徑請⾃⾏修正)，並可透過:,
+,
+"1
+2
+3
+4","python bm25_retrieve.py \
+--question_path ../dataset/preliminary/questions_example.json \
+--source_path ../reference \
+--output_path ../dataset/preliminary/pred_retrieve.json"
+,
+其中,

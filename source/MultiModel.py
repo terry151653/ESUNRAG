@@ -1,107 +1,231 @@
-import fitz  # PyMuPDF
 import os
+import json
+import base64
+from openai import OpenAI
+from typing import List, Dict, Any, Optional
+import concurrent.futures
+import logging
+from dotenv import load_dotenv
+from pathlib import Path
 
-def has_images(pdf_path):
-    """
-    Check if a PDF file contains any images
-    
-    Args:
-        pdf_path: Path to the PDF file
-        
-    Returns:
-        bool: True if PDF contains images, False otherwise
-    """
-    try:
-        
-        doc = fitz.open(pdf_path)
-        
-        for page_num in range(doc.page_count):
-            page = doc[page_num]
-            if page.get_images():
-                doc.close()
-                return True
-                
-        doc.close()
-        return False
-        
-    except Exception as e:
-        print(f"Error checking for images: {str(e)}")
-        return False
+# Set the path to the .env file
+env_path = Path(__file__).resolve().parent.parent / '.env'
 
-def has_tables(pdf_path):
-    """
-    Check if a PDF file contains any tables
-    
-    Args:
-        pdf_path: Path to the PDF file
+# Load the .env file
+load_dotenv(dotenv_path=env_path)
+
+class MultiModel:
+    def __init__(self):
+        """Initialize the MultiModel with OpenAI API key"""
+        self.client = OpenAI()
+
+    def encode_image(self, image_path: str) -> str:
+        """
+        Encode image to base64 string
         
-    Returns:
-        bool: True if PDF contains tables, False otherwise
-    """
+        Args:
+            image_path: Path to image file
+            
+        Returns:
+            Base64 encoded string
+        """
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+
+    def analyze_content(self, text: str, image_paths: Optional[List[str]] = None, prompt: str = "") -> Dict[str, Any]:
+        """
+        Analyze content using GPT-4 Vision model with text and optional multiple image inputs
+        
+        Args:
+            text: Text input to analyze
+            image_paths: Optional list of paths to image files
+            prompt: Prompt/instructions for the model
+            
+        Returns:
+            Dict containing model response and metadata
+        """
+        try:
+            # Construct base message content
+            content = [{"type": "text", "text": text}]
+            
+            # Add images if provided
+            if image_paths:
+                for image_path in image_paths:
+                    base64_image = self.encode_image(image_path)
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    })
+            
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": content}
+            ]
+            
+            # Use vision model
+            model = "gpt-4o"
+            
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=4096,
+                response_format={"type": "json_object"}
+            )
+            
+            return {
+                "success": True,
+                "response": response.choices[0].message.content,
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+
+# Configure logging for errors
+logging.basicConfig(filename='error_log.txt', level=logging.ERROR, 
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Define a function to process a task
+def process_task(task):
     try:
-        doc = fitz.open(pdf_path)
-        
-        for page_num in range(doc.page_count):
-            page = doc[page_num]
-            # Check for tables using text analysis
-            # Look for consistent vertical alignment and multiple columns
-            words = page.get_text("words")
-            if len(words) > 0:
-                # Group words by their vertical position
-                y_positions = {}
-                for word in words:
-                    y_pos = round(word[3])  # bottom y-coordinate
-                    if y_pos in y_positions:
-                        y_positions[y_pos] += 1
-                    else:
-                        y_positions[y_pos] = 1
-                
-                # If we have multiple words aligned on the same y-position
-                # it might indicate a table
-                for count in y_positions.values():
-                    if count >= 3:  # At least 3 words aligned horizontally
-                        doc.close()
-                        return True
-        
-        doc.close()
-        return False
-        
+        # Use the pre-initialized model
+        result = model.analyze_content(
+            text=task['text'],
+            image_paths=task['image_paths'],
+            prompt=task['prompt']
+        )
+        os.makedirs(os.path.dirname(task['output_path']), exist_ok=True)
+        with open(task['output_path'], 'w', encoding='utf-8') as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+        return True
     except Exception as e:
-        print(f"Error checking for tables: {str(e)}")
+        # Log error details
+        error_message = f"Error processing task for {task['output_path']}: {e}"
+        print(error_message)
+        logging.error(error_message)
         return False
+    
 
 if __name__ == "__main__":
-    input_dir = "../"
-    output_dir = "../"
-    for pdf_file in os.listdir(input_dir):
-        if not pdf_file.endswith('.pdf'):
+    input_dir = "../reference/insurance_extracted/"
+    output_dir = "../reference/insurance_output/"
+    
+    system_prompt = """You're a helpful assistant that can extract detailed information from the input text and images.
+You will be provided with:
+1. The parsed text from the entire PDF document
+2. A specific image of one page from the PDF document
+
+Your task is to extract the information from the image and combine it with the corresponding part of the parsed text, especially if any information is missing from the text. Your output should be focused on capturing the complete information contained in the page image in detail, in raw text form.
+
+Make sure your response is comprehensive enough that a chinese reader would fully understand the content of the page even without seeing the original document.
+
+**Output Requirements:**
+- The output must be in JSON format, structured as follows:
+  
+  ```json
+  {
+    "page{n}_text": "Extracted information from the image combined with the parsed text for page n. The text should be complete enough for readers to understand the content."
+  }
+
+"""
+    
+    # Initialize MultiModel (you'll need to add your API key here)
+    model = MultiModel()
+    
+    # Variable to count errors
+    error_count = 0
+
+    # Create list to store all tasks
+    all_tasks = []
+
+    # Iterate through numbered directories
+    for dir_name in os.listdir(input_dir):
+        dir_path = os.path.join(input_dir, dir_name)
+        if not os.path.isdir(dir_path):
             continue
-            
-        pdf_path = os.path.join(input_dir, pdf_file)
-        pdf_name = os.path.splitext(pdf_file)[0]
-        pdf_output_dir = os.path.join(output_dir, pdf_name)
-        
-        # Create output directory if it doesn't exist
-        if not os.path.exists(pdf_output_dir):
-            os.makedirs(pdf_output_dir)
-        
-        # Check for images and tables
-        has_img = has_images(pdf_path)
-        has_tbl = has_tables(pdf_path)
-        
-        # Create status files
-        if has_img:
-            with open(os.path.join(pdf_output_dir, "hasPic"), "w") as f:
-                pass
+
+        # Find text file and check for images/tables
+        files = os.listdir(dir_path)
+        has_pic = any(f.startswith('hasPic') for f in files)
+        has_table = any(f.startswith('hasTable') for f in files)
+
+        # Find the text file
+        text_file = next((f for f in files if f.endswith('.txt')), None)
+        if not text_file:
+            print(f"No text file found in {dir_path}")
+            continue
+
+        # Read text content
+        with open(os.path.join(dir_path, text_file), 'r', encoding='utf-8') as f:
+            text_content = f.read()
+
+        # Process each image individually if pictures are present
+        if has_pic:
+            image_files = [f for f in files if f.endswith('.png')]
+
+            for idx, image_file in enumerate(image_files, 1):
+                image_path = os.path.join(dir_path, image_file)
+
+                # Add task for each image
+                all_tasks.append({
+                    'text': text_content,
+                    'image_paths': [image_path],
+                    'prompt': system_prompt,
+                    'output_path': os.path.join(output_dir, f"{dir_name}_image{idx}_result.json")
+                })
+
         else:
-            with open(os.path.join(pdf_output_dir, "noPic"), "w") as f:
-                pass
-                
-        if has_tbl:
-            with open(os.path.join(pdf_output_dir, "hasTable"), "w") as f:
-                pass
-        else:
-            with open(os.path.join(pdf_output_dir, "noTable"), "w") as f:
-                pass
-        
-        print(f"{pdf_file}: Images: {'Yes' if has_img else 'No'}, Tables: {'Yes' if has_tbl else 'No'}")
+            # Add text-only task
+            all_tasks.append({
+                'text': text_content,
+                'image_paths': None,
+                'prompt': system_prompt,
+                'output_path': os.path.join(output_dir, f"{dir_name}_result.json")
+            })
+
+        print(f"Prepared tasks for directory {dir_name}")
+
+    # Process tasks with a limit of 100 concurrent tasks
+    max_concurrent_tasks = 100
+    error_count = 0
+    total_tasks = len(all_tasks)
+    task_index = 0  # Index to keep track of the next task to submit
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_concurrent_tasks) as executor:
+        futures = {}  # Dictionary to map futures to tasks
+
+        while task_index < total_tasks or futures:
+            # Submit new tasks if we have less than 100 running and there are tasks left
+            while len(futures) < max_concurrent_tasks and task_index < total_tasks:
+                task = all_tasks[task_index]
+                future = executor.submit(process_task, task)
+                futures[future] = task
+                task_index += 1
+                print(f"Submitted task {task_index}/{total_tasks}: {task['output_path']}")
+
+            # Wait for any future to complete
+            done, _ = concurrent.futures.wait(futures.keys(), return_when=concurrent.futures.FIRST_COMPLETED)
+
+            # Remove completed futures and update error count
+            for future in done:
+                task = futures.pop(future)
+                result = future.result()
+                if not result:
+                    error_count += 1
+                print(f"Completed task: {task['output_path']}")
+
+        # Ensure all futures are done
+        concurrent.futures.wait(futures.keys())
+
+    # Print total number of errors encountered
+    print(f"Total number of errors: {error_count}")

@@ -1,0 +1,4 @@
+欄位,型態,說明
+qid,integer,題號
+retrieve,integer,⽂件編號 ( pid )，您認為問題的答案能在此⽂件編號的內容中找到
+,,

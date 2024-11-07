@@ -1,0 +1,89 @@
+=== TABLES ON PAGE 1 ===
+
+比賽資料說明 |  |
+本次比賽使⽤網路上供社會⼤眾查閱的公開資料，如下說明 |  |
+資料類別 ( category ) | 簡介 | 參考⽂件 ( reference ) 檔案類型
+faq | ⽟⼭銀⾏官⽅網站上的常⾒問題 | .json
+insurance | ⽟⼭銀⾏代銷的保險產品之保單條款 | .pdf
+finance | 公開資訊觀測站上的上市公司財務報告 | .pdf
+下圖表⽰了初賽的資料夾結構: |  |
+1 ├── dataset
+2 │ ├── preliminary
+3 │ │ └── questions_example.json
+4 │ │ └── ground_truths_example.json
+5 └── reference
+6 ├── faq
+7 │ └── pid_map_content.json
+8 ├── insurance
+9 │ ├── 1.pdf
+10 │ ├── 2.pdf
+11 │ └── ...
+12 └── finance
+13 ├── 0.pdf
+14 ├── 1.pdf
+15 └── ... |  |
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15 |  |
+q
+g |  |
+資料類別 ( category ) 簡介 參考⽂件 ( reference ) 檔案類型 faq ⽟⼭銀⾏官⽅網站上的常⾒問題 .json insurance ⽟⼭銀⾏代銷的保險產品之保單條款 .pdf finance 公開資訊觀測站上的上市公司財務報告 .pdf 1 ├── dataset 2 │   ├── preliminary 3 │   │   └── questions_example.json 4 │   │   └── ground_truths_example.json 5 └── reference 6     ├── faq 7     │   └── pid_map_content.json 8     ├── insurance 9     │   ├── 1.pdf 10     │   ├── 2.pdf 11     │   └── ... 12     └── finance 13         ├── 0.pdf 14         ├── 1.pdf 15         └── ...
+
+q | uestions_example.json
+questions_example.json 為範例題⽬，共有 150 題，供參賽者練習使⽤。
+
+g | round_truths_example.json
+ground_truths_example.json: 範例題⽬的答案，供參賽者練習使⽤。 資料夾 reference 存放各類型資料的參考⽂件 資料格式-初賽 1. 主辦⽅發佈的題⽬格式 ( questions_example.json )
+questions_example.json 的格式與正式比賽題⽬ questions.json 相同 1. 主辦⽅發佈的題⽬格式 ( questions_example.json )
+
+=== TABLES ON PAGE 2 ===
+
+1 {
+2 "questions": [
+3 {
+4 "qid": 1,
+5 "source": [442, 115, 440, 196, 431, 392, 14, 51],
+6 "query": "匯款銀⾏及中間⾏所收取之相關費⽤由誰負擔?",
+7 "category": "insurance"
+8 },
+9 // 後⾯題⽬省略...
+10 ]
+11 } |  |  |
+11 |  |  |
+題⽬包 | 在 questions 串列裡，每個題⽬皆有: |  |
+欄位 |  | 型態 | 說明
+|  | integer | 題號
+query |  | string | 問題
+source |  | list of
+integer | 能夠回答問題的可能選項，數字的意義為⽂件編號 ( pid )，可在資料夾
+reference 中找到對應的檔案或內容，例如:
+- 當 category 為 insurance 或 finance: pid 13 對應到⽂件庫中 13.pdf
+- 當 category 為 faq: pid 13 對應到 pid_map_content.json 中, 鍵為 13 的內容
+category |  | string | 資料類型，reference 裡有對應的資料夾存放該類型的⽂件
+2. 參賽者提交的答案格式 ( 請命名為 pred_retrieve.json ) |  |  |
+2 "answers": [
+5 "retrieve": 926
+6 },
+7 // 後⾯題⽬省略...
+8 ]
+9 } |  |  |
+9 |  |  |
+參賽 |  |  |
+1 { 2     "questions": [ 3         { 4             "qid": 1, 5             "source": [442, 115, 440, 196, 431, 392, 14, 51], 6             "query": "匯款銀⾏及中間⾏所收取之相關費⽤由誰負擔?", 7             "category": "insurance" 8         }, 9         // 後⾯題⽬省略... 10     ] 題⽬包在 questions 串列裡，每個題⽬皆有: 欄位 型態 說明 qid integer 題號 query string 問題 能夠回答問題的可能選項，數字的意義為⽂件編號 ( pid )，可在資料夾 list of reference 中找到對應的檔案或內容，例如: integer - 當 category 為 insurance 或 finance: pid 13 對應到⽂件庫中 13.pdf - 當 category 為 faq: pid 13 對應到 pid_map_content.json 中, 鍵為 13 的內容 category string 資料類型，reference 裡有對應的資料夾存放該類型的⽂件 2     "answers": [ 5             "retrieve": 926 6         }, 7         // 後⾯題⽬省略... 8     ] 參賽者提交的預測結果放在 answers 串列裡，每個題⽬皆有:
+
+欄位 | 型態 | 說明
+qid | integer | 題號
+retrieve | integer | ⽂件編號 ( pid )，您認為問題的答案能在此⽂件編號的內容中找到
+retrieve integer ⽂件編號 ( pid )，您認為問題的答案能在此⽂件編號的內容中找到

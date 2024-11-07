@@ -29,75 +29,143 @@ def extract_pdf_content(pdf_path, output_dir):
     # Extract text and tables using pdfplumber
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages):
-            # Extract tables first
+            page_content = []  # List to store all content with their positions
+            seen_content = set()  # Track unique content per page
+            
+            # Extract tables with their positions
             tables = page.extract_tables()
+            table_texts = set()  # Store all table text for duplicate checking
             
-            # Get all table bounding boxes
-            table_areas = []
-            for table in page.find_tables():
-                x0, y0, x1, y1 = table.bbox
-                # Ensure y0 is smaller than y1 (top should be smaller than bottom)
-                if y0 > y1:
-                    y0, y1 = y1, y0
-                table_areas.append((x0, y0, x1, y1))
+            for table_num, table in enumerate(tables):
+                table_obj = page.find_tables()[table_num]
+                y_pos = table_obj.bbox[1]  # Get y position of table
+                
+                # Only add page header for first table on page
+                table_text = f"=== TABLES ON PAGE {page_num + 1} ===\n\n" if table_num == 0 else "\n"
+                
+                # Process table rows without adding "Table X:" header
+                for row in table:
+                    if not any(cell for cell in row):
+                        continue
+                    cleaned_cells = []
+                    for cell in row:
+                        cell_text = str(cell or '').strip()
+                        cleaned_cells.append(cell_text)
+                    if any(cleaned_cells):
+                        row_text = ' | '.join(cleaned_cells)
+                        if row_text not in seen_content:
+                            table_text += row_text + '\n'
+                            seen_content.add(row_text)
+                            # Add individual cells to seen content
+                            for cell in cleaned_cells:
+                                if cell:
+                                    seen_content.add(cell)
+                                    table_texts.add(cell)
+                
+                # Add table to content list with its position
+                page_content.append((y_pos, table_text))
+                
+                # Save CSV
+                table_path = os.path.join(output_dir, f'{pdf_name}_page_{page_num + 1}_table_{table_num + 1}.csv')
+                with open(table_path, 'w', encoding='utf-8', newline='') as f:
+                    import csv
+                    writer = csv.writer(f)
+                    writer.writerows(table)
+                result['tables'].append(table_path)
             
-            # Sort table areas by vertical position (top to bottom)
-            table_areas.sort(key=lambda x: x[1])
+            # Extract words with their positions
+            words = page.extract_words(keep_blank_chars=True)  # Keep blank chars for better spacing
+            current_line = []
+            current_y = None
+            line_spacing_threshold = 3  # Adjust this value if needed
             
-            # Extract text from non-table areas
-            if table_areas:
-                # Get the full page dimensions
-                x0, top, x1, bottom = page.bbox
+            # Group words into lines with better handling of line breaks
+            for word in words:
+                if current_y is None:
+                    current_y = word['top']
                 
-                # Create a list of vertical sections to extract text from
-                text = ""
-                
-                # Add text before first table
-                if table_areas[0][1] > top:
-                    section = (x0, top, x1, table_areas[0][1])
-                    crop = page.within_bbox(section)
-                    if crop:
-                        text += crop.extract_text() or ""
-                
-                # Add text between tables
-                for i in range(len(table_areas) - 1):
-                    section = (x0, table_areas[i][3], x1, table_areas[i+1][1])
-                    crop = page.within_bbox(section)
-                    if crop:
-                        text += crop.extract_text() or ""
-                
-                # Add text after last table
-                if table_areas[-1][3] < bottom:
-                    section = (x0, table_areas[-1][3], x1, bottom)
-                    crop = page.within_bbox(section)
-                    if crop:
-                        text += crop.extract_text() or ""
-            else:
-                text = page.extract_text()
-                
-            if text:
-                result['text'] += text.strip() + '\n'
-            
-            # Add formatted tables
-            if tables:
-                result['text'] += f"\n=== TABLES ON PAGE {page_num + 1} ===\n"
-                for table_num, table in enumerate(tables):
-                    result['text'] += f"\nTable {table_num + 1}:\n"
+                # Check if this is a new line
+                if abs(word['top'] - current_y) > line_spacing_threshold:
+                    # Process previous line
+                    if current_line:
+                        text = ' '.join(current_line).strip()
+                        # Check if the line ends with a hyphen (possible word break)
+                        if text.endswith('-'):
+                            text = text[:-1]  # Remove hyphen
+                        elif not text.endswith('.'):  # Not end of sentence
+                            text += ' '  # Add space for continuation
+                            
+                        if (text and 
+                            text not in seen_content and 
+                            not any(text in content for _, content in page_content) and
+                            not any(text in table_text for table_text in table_texts)):
+                            page_content.append((current_y, text))
+                            seen_content.add(text)
                     
-                    # Convert table to text format
-                    for row in table:
-                        row = [str(cell or '').strip() for cell in row]
-                        result['text'] += ' | '.join(row) + '\n'
+                    current_line = [word['text']]
+                    current_y = word['top']
+                else:
+                    # Add space between words if needed
+                    if current_line and not current_line[-1].endswith('-'):
+                        current_line.append(word['text'])
+                    else:
+                        current_line.append(word['text'])
+            
+            # Process last line
+            if current_line:
+                text = ' '.join(current_line).strip()
+                if text.endswith('-'):
+                    text = text[:-1]
                     
-                    result['text'] += '\n'  # Add extra line between tables
-                    
-                    # Save CSV if needed
-                    table_path = os.path.join(output_dir, f'{pdf_name}_page_{page_num + 1}_table_{table_num + 1}.csv')
-                    with open(table_path, 'w', encoding='utf-8', newline='') as f:
-                        import csv
-                        writer = csv.writer(f)
-                        writer.writerows(table)
-                    result['tables'].append(table_path)
+                if (text and 
+                    text not in seen_content and 
+                    not any(text in content for _, content in page_content) and
+                    not any(text in table_text for table_text in table_texts)):
+                    page_content.append((current_y, text + '\n'))
+                    seen_content.add(text)
+            
+            # Sort and combine content
+            page_content.sort(key=lambda x: x[0])
+            
+            # Combine lines more intelligently
+            current_text = ''
+            for _, content in page_content:
+                if content.startswith('==='):
+                    if current_text:
+                        result['text'] += current_text.strip() + '\n'
+                        current_text = ''
+                    result['text'] += content
+                elif '|' in content:
+                    if current_text:
+                        result['text'] += current_text.strip() + '\n'
+                        current_text = ''
+                    result['text'] += content
+                else:
+                    if current_text:
+                        current_text += ' '
+                    current_text += content.strip()
+            
+            if current_text:
+                result['text'] += current_text.strip() + '\n'
+    
+    # Final cleanup - simpler version that preserves original spacing
+    lines = []
+    seen_lines = set()
+    
+    for line in result['text'].split('\n'):
+        line = line.strip()
+        if line.startswith('==='):
+            if lines:
+                lines.append('')
+            lines.append(line)
+            lines.append('')
+        elif line and line not in seen_lines:
+            lines.append(line)
+            seen_lines.add(line)
+        elif not line and (not lines or lines[-1]):
+            lines.append(line)
+    
+    result['text'] = '\n'.join(lines)
     
     # Save extracted text to file
     text_path = os.path.join(output_dir, f'{pdf_name}_text.txt')
