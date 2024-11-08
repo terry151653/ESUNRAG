@@ -1,12 +1,12 @@
 import os
 import json
 import argparse
-
 from tqdm import tqdm
 from openai import OpenAI
-
 from dotenv import load_dotenv
 from pathlib import Path
+import concurrent.futures
+import logging
 
 # Set the path to the .env file
 env_path = Path(__file__).resolve().parent.parent / '.env'
@@ -15,6 +15,10 @@ env_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 client = OpenAI()
+
+# Configure logging for errors
+logging.basicConfig(filename='error_log.txt', level=logging.ERROR, 
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load reference data from JSON files, returning a dictionary with file names as keys and content as values
 def load_data_json(source_path):
@@ -32,24 +36,33 @@ def load_data_json(source_path):
     print(f"Successfully loaded {len(corpus_dict)} JSON files")
     return corpus_dict
 
-def LLM_API(query, source_ids, corpus_dict):
-    print(f"\nProcessing query: {query}...")  # Show first 100 chars of query
+def LLM_API(query, source_ids, corpus_dict, category):
+    print(f"\nProcessing query: {query}...")
     print(f"Source IDs to check: {source_ids}")
     documents = []
     for file_id in source_ids:
         doc = corpus_dict.get(int(file_id))
+        # print(f"Document ID: {file_id}")
+        # print(f"Document: {doc}")
         if doc:
-            documents.append((file_id, str(doc)))
+            if category == 'faq':
+                documents.append((file_id, doc))
+            else:
+                documents.append((file_id, doc['combined_responses'], doc['raw_text']))
         else:
             print(f"Warning: Document ID {file_id} not found in corpus.")
 
-    # Build context for GPT-4
+    # Build context for LLM
     context = ''
-    for file_id, doc_text in documents:
-        context += f"文件 {file_id}:\n{doc_text}\n\n"
+    if category == 'faq':
+        for file_id, doc in documents:
+            context += f"文件 {file_id}:{{\n{{{doc}}}\n}}\n"
+    else:
+        for file_id, pages_text, raw_text in documents:
+            context += f"文件 {file_id}:{{\npages_text:\n{{{pages_text}}}\nraw_text:\n{{{raw_text}}}\n}}\n"
 
     print(f"Built context with {len(context)} characters")
-    print(f"Context: {context}")  # Show first 100 chars of context
+    # print(f"Context: {context}")
 
     # Prepare the prompt
     prompt = f"""你是一個有幫助的助理。根據以下參考資料，回答用戶的問題。
@@ -65,27 +78,62 @@ def LLM_API(query, source_ids, corpus_dict):
 
 回答格式，用JSON格式：
 {{
-    "qid": 問題編號: int,
     "retrieve": 文件編號: int
 }}"""
 
-    # Call the GPT-4 API
+    # Call the LLM API
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=100,
-            temperature=0.0,
+            max_tokens=1000,
+            temperature=0,
             response_format={"type": "json_object"}
         )
 
-        print(f"Response: {response.choices[0].message.content}")  # Show response
+        print(f"Response: {response.choices[0].message.content}")
         return response.choices[0].message.content
     except Exception as e:
         print(f"Error during API call: {e}")
         return None
+
+def process_question(q_dict):
+    category = q_dict['category']
+    qid = q_dict['qid']
+    query = q_dict['query']
+    source_ids = q_dict['source']
+
+    # Access the shared data
+    global corpus_dict_finance, corpus_dict_insurance, key_to_source_dict
+
+    try:
+        if category == 'finance':
+            corpus_dict = corpus_dict_finance
+        elif category == 'insurance':
+            corpus_dict = corpus_dict_insurance
+        elif category == 'faq':
+            corpus_dict = {key: str(value) for key, value in key_to_source_dict.items() if key in source_ids}
+        else:
+            raise ValueError(f"Unknown category: {category}")
+
+        # Call the LLM_API function
+        retrieved = LLM_API(query, source_ids, corpus_dict, category)
+
+        # Process the retrieved result
+        if retrieved is not None:
+            try:
+                retrieved_json = json.loads(retrieved)
+                retrieve_value = int(retrieved_json.get('retrieve'))
+                return {"qid": qid, "retrieve": retrieve_value}
+            except (json.JSONDecodeError, KeyError, ValueError) as e:
+                print(f"Error parsing retrieved JSON for question ID {qid}: {e}")
+        else:
+            print(f"Failed to retrieve answer for question ID {qid}")
+    except Exception as e:
+        print(f"Exception processing question ID {qid}: {e}")
+    return None
 
 if __name__ == "__main__":
     print("\n=== Starting Question Processing ===")
@@ -118,66 +166,54 @@ if __name__ == "__main__":
         key_to_source_dict = {int(key): value for key, value in key_to_source_dict.items()}
 
     print("\nProcessing questions...")
-    for i, q_dict in enumerate(qs_ref['questions'], 1):
-        print(f"\n--- Processing Question {i}/{len(qs_ref['questions'])} ---")
-        print(f"Category: {q_dict['category']}")
-        print(f"Question ID: {q_dict['qid']}")
-        category = q_dict['category']
-        qid = q_dict['qid']
-        query = q_dict['query']
-        source_ids = q_dict['source']
 
-        if category == 'finance':
-            # Retrieve the answer using GPT-4
-            retrieved = LLM_API(query, source_ids, corpus_dict_finance)
-            if retrieved is not None:
-                try:
-                    # Parse the retrieved JSON string
-                    retrieved_json = json.loads(retrieved)
-                    # Get the retrieve value from the parsed JSON
-                    retrieve_value = int(retrieved_json.get('retrieve'))
-                    answer_dict['answers'].append({"qid": qid, "retrieve": retrieve_value})
-                except (json.JSONDecodeError, KeyError, ValueError) as e:
-                    print(f"Error parsing retrieved JSON for question ID {qid}: {e}")
-            else:
-                print(f"Failed to retrieve answer for question ID {qid}")
+    # Create list to store all tasks
+    all_tasks = qs_ref['questions']
+    max_concurrent_tasks = 100
+    error_count = 0
+    total_tasks = len(all_tasks)
+    task_index = 0  # Index to keep track of the next task to submit
 
-        elif category == 'insurance':
-            retrieved = LLM_API(query, source_ids, corpus_dict_insurance)
-            if retrieved is not None:
-                try:
-                    # Parse the retrieved JSON string
-                    retrieved_json = json.loads(retrieved)
-                    # Get the retrieve value from the parsed JSON
-                    retrieve_value = int(retrieved_json.get('retrieve'))
-                    answer_dict['answers'].append({"qid": qid, "retrieve": retrieve_value})
-                except (json.JSONDecodeError, KeyError, ValueError) as e:
-                    print(f"Error parsing retrieved JSON for question ID {qid}: {e}")
-            else:
-                print(f"Failed to retrieve answer for question ID {qid}")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_concurrent_tasks) as executor:
+        futures = {}  # Dictionary to map futures to q_dict
 
-        elif category == 'faq':
-            # Prepare the corpus dictionary for the FAQ category
-            corpus_dict_faq = {key: str(value) for key, value in key_to_source_dict.items() if key in source_ids}
-            retrieved = LLM_API(query, source_ids, corpus_dict_faq)
-            if retrieved is not None:
-                try:
-                    # Parse the retrieved JSON string
-                    retrieved_json = json.loads(retrieved)
-                    # Get the retrieve value from the parsed JSON
-                    retrieve_value = int(retrieved_json.get('retrieve'))
-                    answer_dict['answers'].append({"qid": qid, "retrieve": retrieve_value})
-                except (json.JSONDecodeError, KeyError, ValueError) as e:
-                    print(f"Error parsing retrieved JSON for question ID {qid}: {e}")
-            else:
-                print(f"Failed to retrieve answer for question ID {qid}")
+        while task_index < total_tasks or futures:
+            # Submit new tasks if we have less than max_concurrent_tasks running and there are tasks left
+            while len(futures) < max_concurrent_tasks and task_index < total_tasks:
+                q_dict = all_tasks[task_index]
+                future = executor.submit(process_question, q_dict)
+                futures[future] = q_dict  # Store the entire q_dict
+                task_index += 1
+                print(f"Submitted task {task_index}/{total_tasks}: Question ID {q_dict['qid']}")
 
-        else:
-            raise ValueError(f"Unknown category: {category}")
+            # Wait for any future to complete
+            done, _ = concurrent.futures.wait(futures.keys(), return_when=concurrent.futures.FIRST_COMPLETED)
+
+            # Remove completed futures and update error count
+            for future in done:
+                q_dict = futures.pop(future)
+                result = future.result()
+                if result:
+                    if result['qid'] != q_dict['qid']:
+                        print(f"QID mismatch for question ID {q_dict['qid']}")
+                        error_count += 1
+                    else:
+                        answer_dict['answers'].append(result)
+                        print(f"Completed task: Question ID {result['qid']}")
+                else:
+                    print(f"Failed to process question ID {q_dict['qid']}")
+                    error_count += 1
+
+        # Ensure all futures are done
+        concurrent.futures.wait(futures.keys())
+
+    # Sort answers by qid before saving
+    answer_dict['answers'].sort(key=lambda x: x['qid'])
 
     # Save the answers to a JSON file
     print(f"\nSaving results to: {args.output_path}")
     with open(args.output_path, 'w', encoding='utf8') as f:
         json.dump(answer_dict, f, ensure_ascii=False, indent=4)
     print(f"Successfully processed {len(answer_dict['answers'])} answers")
+    print(f"Total number of errors: {error_count}")
     print("\n=== Processing Complete ===")

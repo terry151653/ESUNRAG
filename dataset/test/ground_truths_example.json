@@ -1,0 +1,14 @@
+{
+    "ground_truths": [
+        {
+            "qid": 94,
+            "retrieve": 699,
+            "category": "finance"
+        },
+        {
+            "qid": 109,
+            "retrieve": 283,
+            "category": "faq"
+        }
+    ]
+}

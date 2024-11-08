@@ -160,7 +160,18 @@ cython_debug/
 #.idea/
 
 # Reference directory
-/reference/
+# /reference/
 
 競賽訓練資料集.zip
 初賽Baseline程式碼說明.zip
+/reference/finance
+/reference/finance_combined_output
+/reference/finance_output
+/reference/finance_extracted
+/reference/insurance
+/reference/insurance_combined_output
+/reference/insurance_output
+/reference/insurance_extracted
+/reference/test
+/reference/test_output
+
