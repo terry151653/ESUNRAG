@@ -110,31 +110,40 @@ Each step is implemented by dedicated scripts located in the `source/` directory
 
 - To quickly reproduce the results from the contest, you can run the following command:
 
-1. Setup processedreference data
+1. Setup processed reference data
 
 ```bash
+git clone https://github.com/terry151653/ESUNRAG.git
+cd ESUNRAG
+pip install -r requirements.txt
 unzip reference.zip
 ```
 
-2. Run the following command to reproduce the results:
+2. Create `.env` file and store your OpenAI API key.
+
+3. Run the following command to reproduce the results:
 
 ```bash
-python ./source/Model/my_retrieval.py \
+python ./source/Model/my_retrieve.py \
   --question_path ./dataset/preliminary/questions_preliminary.json \
   --source_path ./reference \
   --output_path ./dataset/preliminary/pred_retrieve.json \
   --max_tasks 100
 ```
 
-3. Place the prediction file in `./dataset/preliminary/`
+4. Place the prediction file in `./dataset/preliminary/`
 
-4. Run the following command to evaluate the results:
+5. Run the following command to evaluate the results:
 
 ```bash
 python ./source/Evaluation/calc_precision.py \
   --predictions ./dataset/preliminary/pred_retrieve.json \
   --ground_truth ./dataset/preliminary/{ground_truth}.json
 ```
+## Note
+
+- The process above is the same as the contest. It will cost around 30 USD.
+- If OpenAI changes the default model of `gpt-4o`, you may get different results.
 
 ## Contributing
 
