@@ -174,4 +174,7 @@ cython_debug/
 /reference/insurance_extracted
 /reference/test
 /reference/test_output
-
+/dataset/faq
+/dataset/finance
+/dataset/insurance
+/dataset/test

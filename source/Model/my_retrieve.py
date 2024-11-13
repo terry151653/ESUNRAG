@@ -21,7 +21,23 @@ logging.basicConfig(filename='error_log.txt', level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load reference data from JSON files, returning a dictionary with file names as keys and content as values
-def load_data_json(source_path):
+def load_data_json(source_path: str) -> dict:
+    """
+    Load reference data from JSON files in the specified directory.
+    
+    Args:
+        source_path (str): Path to directory containing JSON files
+        
+    Returns:
+        dict: Dictionary with file IDs as keys and file content as values
+        
+    Example:
+        If source_path contains files '1.json', '2.json', returns:
+        {
+            1: content_of_file_1,
+            2: content_of_file_2
+        }
+    """
     print(f"\nLoading JSON files from: {source_path}")
     masked_file_ls = os.listdir(source_path)
     print(f"Found {len(masked_file_ls)} files")
@@ -36,14 +52,32 @@ def load_data_json(source_path):
     print(f"Successfully loaded {len(corpus_dict)} JSON files")
     return corpus_dict
 
-def LLM_API(query, source_ids, corpus_dict, category):
+def LLM_API(query: str, source_ids: list, corpus_dict: dict, category: str) -> str:
+    """
+    Process a query using the LLM API to identify the most relevant document.
+    
+    Args:
+        query (str): User's question or query
+        source_ids (list): List of document IDs to search through
+        corpus_dict (dict): Dictionary containing document contents
+        category (str): Type of documents ('faq', 'finance', or 'insurance')
+        
+    Returns:
+        str: JSON string containing the most relevant document ID
+        
+    Example:
+        Input:
+            query: "How do I file a claim?"
+            source_ids: [1, 2, 3]
+            category: "insurance"
+        Output:
+            '{"retrieve": 2}'
+    """
     print(f"\nProcessing query: {query}...")
     print(f"Source IDs to check: {source_ids}")
     documents = []
     for file_id in source_ids:
         doc = corpus_dict.get(int(file_id))
-        # print(f"Document ID: {file_id}")
-        # print(f"Document: {doc}")
         if doc:
             if category == 'faq':
                 documents.append((file_id, doc))
@@ -62,9 +96,7 @@ def LLM_API(query, source_ids, corpus_dict, category):
             context += f"文件 {file_id}:{{\npages_text:\n{{{pages_text}}}\nraw_text:\n{{{raw_text}}}\n}}\n"
 
     print(f"Built context with {len(context)} characters")
-    # print(f"Context: {context}")
 
-    # Prepare the prompt
     prompt = f"""你是一個有幫助的助理。根據以下參考資料，回答用戶的問題。
 請根據參考資料找到最相關的文件編號。只需輸出文件編號，不要輸出其他內容。
 參考資料間可能會有類似的資訊，你需要分析他們的差異，並選擇最相關的文件編號。
@@ -81,10 +113,9 @@ def LLM_API(query, source_ids, corpus_dict, category):
     "retrieve": 文件編號: int
 }}"""
 
-    # Call the LLM API
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -99,7 +130,41 @@ def LLM_API(query, source_ids, corpus_dict, category):
         print(f"Error during API call: {e}")
         return None
 
-def process_question(q_dict):
+def process_question(q_dict: dict) -> dict:
+    """
+    Process a single question using the appropriate corpus and LLM.
+    
+    Args:
+        q_dict (dict): Dictionary containing question details:
+            {
+                'category': str,  # 'finance', 'insurance', or 'faq'
+                'qid': int,       # Question ID
+                'query': str,     # The actual question
+                'source': list    # List of source document IDs to search
+            }
+            
+    Returns:
+        dict: Dictionary containing question ID and retrieved document ID:
+            {
+                'qid': int,
+                'retrieve': int
+            }
+        or None if processing fails
+        
+    Example:
+        Input:
+            {
+                'category': 'insurance',
+                'qid': 1,
+                'query': 'How do I file a claim?',
+                'source': [1, 2, 3]
+            }
+        Output:
+            {
+                'qid': 1,
+                'retrieve': 2
+            }
+    """
     category = q_dict['category']
     qid = q_dict['qid']
     query = q_dict['query']
@@ -118,10 +183,8 @@ def process_question(q_dict):
         else:
             raise ValueError(f"Unknown category: {category}")
 
-        # Call the LLM_API function
         retrieved = LLM_API(query, source_ids, corpus_dict, category)
 
-        # Process the retrieved result
         if retrieved is not None:
             try:
                 retrieved_json = json.loads(retrieved)
@@ -136,14 +199,68 @@ def process_question(q_dict):
     return None
 
 if __name__ == "__main__":
+    """
+    Main entry point for the document retrieval system.
+    
+    This script processes questions and retrieves the most relevant document IDs using LLM.
+    It supports three categories of documents: finance, insurance, and FAQ.
+    
+    Usage:
+        python my_retrieve.py --question_path /path/to/questions.json 
+                            --source_path /path/to/source/dir 
+                            --output_path /path/to/output.json
+                            [--max_tasks 100]
+    
+    Args:
+        question_path: Path to JSON file containing questions
+        source_path: Path to directory containing reference documents
+        output_path: Path where output JSON will be saved
+        max_tasks: Maximum number of concurrent tasks (default: 100)
+    
+    The script:
+    1. Loads questions from the question file
+    2. Loads reference documents from the source directory
+    3. Processes each question using concurrent threads
+    4. Saves results to the output file in JSON format
+    
+    Example output format:
+    {
+        "answers": [
+            {"qid": 1, "retrieve": 42},
+            {"qid": 2, "retrieve": 17},
+            ...
+        ]
+    }
+    """
     print("\n=== Starting Question Processing ===")
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description='Process some paths and files.')
-    parser.add_argument('--question_path', type=str, required=True, help='讀取發布題目路徑')  # Path to the question file
-    parser.add_argument('--source_path', type=str, required=True, help='讀取參考資料路徑')  # Path to the reference data
-    parser.add_argument('--output_path', type=str, required=True, help='輸出符合參賽格式的答案路徑')  # Path to output the answers
+    parser = argparse.ArgumentParser(description='Process questions and retrieve relevant documents.')
+    parser.add_argument('--question_path', 
+                       type=str, 
+                       default="../dataset/preliminary/questions_example.json",
+                       required=True, 
+                       help='讀取發布題目路徑 (default: %(default)s)')
+    parser.add_argument('--source_path', 
+                       type=str, 
+                       default="../reference",
+                       required=True, 
+                       help='讀取參考資料路徑 (default: %(default)s)')
+    parser.add_argument('--output_path', 
+                       type=str, 
+                       default="../dataset/preliminary/example_pred_retrieve.json",
+                       required=True, 
+                       help='輸出符合參賽格式的答案路徑 (default: %(default)s)')
+    parser.add_argument('--max_tasks', 
+                       type=int, 
+                       default=100, 
+                       help='Maximum number of concurrent tasks (default: %(default)s)')
 
     args = parser.parse_args()
+    
+    print(f"Question file: {args.question_path}")
+    print(f"Source directory: {args.source_path}")
+    print(f"Output file: {args.output_path}")
+    print(f"Max concurrent tasks: {args.max_tasks}")
 
     answer_dict = {"answers": []}
 
@@ -169,7 +286,7 @@ if __name__ == "__main__":
 
     # Create list to store all tasks
     all_tasks = qs_ref['questions']
-    max_concurrent_tasks = 100
+    max_concurrent_tasks = args.max_tasks
     error_count = 0
     total_tasks = len(all_tasks)
     task_index = 0  # Index to keep track of the next task to submit

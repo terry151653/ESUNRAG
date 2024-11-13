@@ -1,5 +1,6 @@
 import fitz  # PyMuPDF
 import os
+import argparse
 
 def has_images(pdf_path):
     """
@@ -71,15 +72,42 @@ def has_tables(pdf_path):
         return False
 
 if __name__ == "__main__":
-    input_dir = "../reference/insurance"
-    output_dir = "../reference/insurance_extracted"
-    for pdf_file in os.listdir(input_dir):
+    """
+    Main entry point for PDF type detection script.
+    
+    This script analyzes PDF files in the input directory and creates marker files
+    indicating whether each PDF contains images and/or tables. For each PDF, it creates
+    a directory in the output location containing marker files:
+        - hasPic/noPic: Indicates presence of images
+        - hasTable/noTable: Indicates presence of tables
+    
+    Usage:
+        python MultiTypeTag.py --input_dir /path/to/pdfs --output_dir /path/to/output
+    """
+    
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Detect images and tables in PDF files.')
+    parser.add_argument('--input_dir', 
+                       type=str,
+                       default="../reference/test",
+                       help='Directory containing PDF files to analyze')
+    parser.add_argument('--output_dir',
+                       type=str,
+                       default="../reference/test_extracted",
+                       help='Directory where marker files will be saved')
+    
+    args = parser.parse_args()
+    
+    print(f"Analyzing PDFs from: {args.input_dir}")
+    print(f"Saving markers to: {args.output_dir}")
+    
+    for pdf_file in os.listdir(args.input_dir):
         if not pdf_file.endswith('.pdf'):
             continue
             
-        pdf_path = os.path.join(input_dir, pdf_file)
+        pdf_path = os.path.join(args.input_dir, pdf_file)
         pdf_name = os.path.splitext(pdf_file)[0]
-        pdf_output_dir = os.path.join(output_dir, pdf_name)
+        pdf_output_dir = os.path.join(args.output_dir, pdf_name)
         
         # Create output directory if it doesn't exist
         if not os.path.exists(pdf_output_dir):
@@ -105,3 +133,5 @@ if __name__ == "__main__":
                 pass
         
         print(f"{pdf_file}: Images: {'Yes' if has_img else 'No'}, Tables: {'Yes' if has_tbl else 'No'}")
+    
+    print("\nProcessing complete!")
