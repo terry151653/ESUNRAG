@@ -46,7 +46,7 @@ Each step is implemented by dedicated scripts located in the `source/` directory
 - **Operating System**: Ubuntu 22.04.4 LTS (Running on WSL)
 - **CPU**: Intel(R) Core(TM) i7-11700F
 - **GPU**: NVIDIA GeForce RTX 3060
-- **Memory**: Total 7.7 GB
+- **Memory**: Total 8 GB
 
 ## Setup and Installation
 
@@ -65,13 +65,24 @@ Each step is implemented by dedicated scripts located in the `source/` directory
      pip install -r requirements.txt
      ```
 
-3. **Directory Setup**:
+3. **Reference Setup**:
 
    - Place your PDF documents in the appropriate directory under `./reference/`.
    - Ensure that the directory structure matches the expected format.
-   - There should be 3 subdirectories in `./reference/`: `faq/`, `updated_finance_output/`, `updated_insurance_output/`.
+   - There should be 3 subdirectories in `./reference/`: `faq/`, `finance/`, `insurance/`.
 
-4. **API Keys**:
+4. **Contest Reference Setup (Optional)**:
+
+   - Since the final reference data is not reproducible, if you're intresting in reproducing the same result in contest, you can unzip reference data.
+   - This will create 3 subdirectories in `./reference/`: `faq/`, `updated_finance_output/`, `updated_insurance_output/`.
+   ```bash
+   unzip reference.zip
+   ```
+
+5. **Dataset Setup**:
+   - Place your questions in `./dataset/preliminary/`.
+
+6. **API Keys**:
 
    - You need to obtain API keys for OpenAI.
    - Store these keys in environment variables in `.env` file.
@@ -93,9 +104,3 @@ Each step is implemented by dedicated scripts located in the `source/` directory
 ## Contributing
 
 Contributions are welcome. Please submit a pull request or open an issue for any changes or suggestions.
-
-## License
-
-[Specify the project's license here.]
-
----

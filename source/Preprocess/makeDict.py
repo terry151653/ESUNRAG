@@ -85,11 +85,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Combine JSON files with matching number prefixes.')
     parser.add_argument('--input_dir', 
                        type=str,
-                       default="../reference/test_output",
+                       default="./reference/test_output",
                        help='Directory containing JSON files to combine')
     parser.add_argument('--output_dir',
                        type=str,
-                       default="../reference/test_combined_output",
+                       default="./reference/test_combined_output",
                        help='Directory where combined JSON files will be saved')
     
     args = parser.parse_args()

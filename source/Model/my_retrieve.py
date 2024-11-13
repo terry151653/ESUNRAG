@@ -237,17 +237,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process questions and retrieve relevant documents.')
     parser.add_argument('--question_path', 
                        type=str, 
-                       default="../dataset/preliminary/questions_example.json",
+                       default="./dataset/preliminary/questions_example.json",
                        required=True, 
                        help='讀取發布題目路徑 (default: %(default)s)')
     parser.add_argument('--source_path', 
                        type=str, 
-                       default="../reference",
+                       default="./reference",
                        required=True, 
                        help='讀取參考資料路徑 (default: %(default)s)')
     parser.add_argument('--output_path', 
                        type=str, 
-                       default="../dataset/preliminary/example_pred_retrieve.json",
+                       default="./dataset/preliminary/example_pred_retrieve.json",
                        required=True, 
                        help='輸出符合參賽格式的答案路徑 (default: %(default)s)')
     parser.add_argument('--max_tasks', 

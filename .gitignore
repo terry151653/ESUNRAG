@@ -178,3 +178,7 @@ cython_debug/
 /dataset/finance
 /dataset/insurance
 /dataset/test
+/reference/test_extracted
+/reference/updated_test_output
+/reference/test_combined_output
+error_log.txt

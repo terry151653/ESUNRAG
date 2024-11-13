@@ -185,11 +185,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Extract text and images from PDF files.')
     parser.add_argument('--input_dir', 
                        type=str,
-                       default="../reference/test",
+                       default="./reference/test",
                        help='Directory containing PDF files to process')
     parser.add_argument('--output_dir',
                        type=str,
-                       default="../reference/test_extracted",
+                       default="./reference/test_extracted",
                        help='Directory where extracted content will be saved')
     
     args = parser.parse_args()

@@ -11,5 +11,5 @@ python ./source/Evaluation/calc_precision.py --predictions [path_to_predictions]
 for example:
 
 ```bash
-python ./source/Evaluation/calc_precision.py --predictions ./dataset/preliminary/my_pred_retrieve.json --ground_truth ./dataset/preliminary/ground_truths_example.json
+python ./source/Evaluation/calc_precision.py --predictions ./dataset/preliminary/example_pre_retrieval.json --ground_truth ./dataset/preliminary/ground_truths_example.json
 ```

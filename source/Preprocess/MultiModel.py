@@ -135,11 +135,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Analyze PDF content using GPT-4o model.')
     parser.add_argument('--input_dir', 
                        type=str,
-                       default="../reference/test_extracted/",
+                       default="./reference/test_extracted/",
                        help='Directory containing extracted PDF content')
     parser.add_argument('--output_dir',
                        type=str,
-                       default="../reference/test_output/",
+                       default="./reference/test_output/",
                        help='Directory where analysis results will be saved')
     parser.add_argument('--max_tasks',
                        type=int,

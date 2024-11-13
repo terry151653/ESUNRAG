@@ -81,15 +81,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Combine text files with JSON files.')
     parser.add_argument('--text_dir', 
                        type=str,
-                       default="../reference/test_extracted",
+                       default="./reference/test_extracted",
                        help='Directory containing text files in subdirectories')
     parser.add_argument('--json_input',
                        type=str,
-                       default="../reference/test_combined_output",
+                       default="./reference/test_combined_output",
                        help='Directory containing input JSON files')
     parser.add_argument('--json_output',
                        type=str,
-                       default="../reference/updated_test_output",
+                       default="./reference/updated_test_output",
                        help='Directory where updated JSON files will be saved')
     
     args = parser.parse_args()

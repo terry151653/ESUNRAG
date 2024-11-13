@@ -38,9 +38,15 @@ def calculate_precision(predictions_path, ground_truth_path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Calculate precision of model predictions against ground truth data.')
-    parser.add_argument('--predictions', type=str, required=True,
+    parser.add_argument('--predictions',
+                        type=str, 
+                        required=True, 
+                        default="./dataset/preliminary/example_pre_retrieval.json", 
                         help='Path to predictions JSON file')
-    parser.add_argument('--ground_truth', type=str, required=True, 
+    parser.add_argument('--ground_truth', 
+                        type=str, 
+                        required=True, 
+                        default="./dataset/preliminary/ground_truths_example.json", 
                         help='Path to ground truth JSON file')
     
     args = parser.parse_args()

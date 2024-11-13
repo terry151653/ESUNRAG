@@ -5,16 +5,13 @@ This directory contains the preprocessing scripts for the PDF processing pipelin
 
 ## Note
 
-Since hand-editing is involved in the preprocessing stage, 
-# if you want to reproduce the result in contest
-, or you don't want to run all the scripts, you can download the reference data from [here](https://drive.google.com/drive/folders/1585555555555555555555555555555555555555?usp=sharing)
-and unzip it into the `./reference` directory.
+Since hand-editing is involved in the preprocessing stage, if you want to reproduce the result in contest, or you don't want to run all the scripts, you can unzip the `./reference.zip`.
 
 ```bash
-unzip reference.zip -d ./reference
+unzip reference.zip
 ```
 
-This will unzip the final processed reference (faq, updated_finance_output, updated_insurance_output) data into the `./reference` directory.
+This will unzip the final processed reference (`faq`, `updated_finance_output`, `updated_insurance_output`) into the `./reference` directory.
 
 ## Workflow Overview
 
@@ -27,8 +24,8 @@ The preprocessing workflow consists of the following sequential steps:
 **Usage**:
 
 ```bash
-python ExtractPDF.py --input_dir ./reference/finance --output_dir ./reference/finance_extracted
-python ExtractPDF.py --input_dir ./reference/insurance --output_dir ./reference/insurance_extracted
+python ./source/Preprocess/ExtractPDF.py --input_dir ./reference/finance --output_dir ./reference/finance_extracted
+python ./source/Preprocess/ExtractPDF.py --input_dir ./reference/insurance --output_dir ./reference/insurance_extracted
 ```
 
 ### 2. Tagging Content Types (`MultiTypeTag.py`)
@@ -38,8 +35,8 @@ python ExtractPDF.py --input_dir ./reference/insurance --output_dir ./reference/
 **Usage**:
 
 ```bash
-python MultiTypeTag.py --input_dir ./reference/finance --output_dir ./reference/finance_extracted
-python MultiTypeTag.py --input_dir ./reference/insurance --output_dir ./reference/insurance_extracted
+python ./source/Preprocess/MultiTypeTag.py --input_dir ./reference/finance --output_dir ./reference/finance_extracted
+python ./source/Preprocess/MultiTypeTag.py --input_dir ./reference/insurance --output_dir ./reference/insurance_extracted
 ```
 
 ### 3. Enhancing Missing Information (`MultiModel.py`)
@@ -53,8 +50,8 @@ python MultiTypeTag.py --input_dir ./reference/insurance --output_dir ./referenc
 **Usage**:
 
 ```bash
-python MultiModel.py --input_dir ./reference/finance_extracted --output_dir ./reference/finance_output --max_tasks 100
-python MultiModel.py --input_dir ./reference/insurance_extracted --output_dir ./reference/insurance_output --max_tasks 100
+python ./source/Preprocess/MultiModel.py --input_dir ./reference/finance_extracted --output_dir ./reference/finance_output --max_tasks 100
+python ./source/Preprocess/MultiModel.py --input_dir ./reference/insurance_extracted --output_dir ./reference/insurance_output --max_tasks 100
 ```
 
 ### 4. Combining Page-Level Data (`makeDict.py`)
@@ -67,8 +64,8 @@ python MultiModel.py --input_dir ./reference/insurance_extracted --output_dir ./
 **Usage**:
 
 ```bash
-python makeDict.py --input_dir ./reference/finance_output --output_dir ./reference/finance_combined_output
-python makeDict.py --input_dir ./reference/insurance_output --output_dir ./reference/insurance_combined_output
+python ./source/Preprocess/makeDict.py --input_dir ./reference/finance_output --output_dir ./reference/finance_combined_output
+python ./source/Preprocess/makeDict.py --input_dir ./reference/insurance_output --output_dir ./reference/insurance_combined_output
 ```
 
 ### 5. Merging Text and Image Data (`textandExtract.py`)
@@ -81,8 +78,8 @@ python makeDict.py --input_dir ./reference/insurance_output --output_dir ./refer
 **Usage**:
 
 ```bash
-python textandExtract.py --text_dir ./reference/finance_extracted --json_input ./reference/finance_combined_output --json_output ./reference/updated_finance_output
-python textandExtract.py --text_dir ./reference/insurance_extracted --json_input ./reference/insurance_combined_output --json_output ./reference/updated_insurance_output
+python ./source/Preprocess/textandExtract.py --text_dir ./reference/finance_extracted --json_input ./reference/finance_combined_output --json_output ./reference/updated_finance_output
+python ./source/Preprocess/textandExtract.py --text_dir ./reference/insurance_extracted --json_input ./reference/insurance_combined_output --json_output ./reference/updated_insurance_output
 ```
 
 ## Additional Notes
@@ -90,6 +87,7 @@ python textandExtract.py --text_dir ./reference/insurance_extracted --json_input
 - Ensure that all dependencies are installed before running the scripts.
 - The order of execution is important; scripts should be run sequentially as listed.
 - Output data from each script is used as input for the subsequent script.
+- Make sure the OpenAI API key is set in `.env`.
 
 ## Error Handling
 
