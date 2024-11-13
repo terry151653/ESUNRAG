@@ -39,6 +39,9 @@ Each step is implemented by dedicated scripts located in the `source/` directory
         - Model/
             - Scripts for the retrieval method.
             - Includes a README detailing the retrieval workflow.
+        - Evaluation/
+            - Scripts for evaluating the model's performance.
+            - Includes a README detailing the evaluation workflow.
 ```
 
 ## Environment
@@ -54,6 +57,7 @@ Each step is implemented by dedicated scripts located in the `source/` directory
 
    ```bash
    git clone https://github.com/terry151653/ESUNRAG.git
+   cd ESUNRAG
    ```
 
 2. **Install Dependencies**:
@@ -73,14 +77,15 @@ Each step is implemented by dedicated scripts located in the `source/` directory
 
 4. **Contest Reference Setup (Optional)**:
 
-   - Since the final reference data is not reproducible, if you're intresting in reproducing the same result in contest, you can unzip reference data.
-   - This will create 3 subdirectories in `./reference/`: `faq/`, `updated_finance_output/`, `updated_insurance_output/`.
+   - Due to the random nature of LLMs, the final reference data is not reproducible. If you're interested in reproducing the same results from the contest, you can unzip the provided reference data.
    ```bash
    unzip reference.zip
    ```
+   - This will create 3 subdirectories in `./reference/`: `faq/`, `updated_finance_output/`, `updated_insurance_output/`.
 
 5. **Dataset Setup**:
-   - Place your questions in `./dataset/preliminary/`.
+
+   - Questions are already stored in `./dataset/preliminary/`.
 
 6. **API Keys**:
 
@@ -99,7 +104,37 @@ Each step is implemented by dedicated scripts located in the `source/` directory
    - Follow instructions in the [Model README](source/Model/README.md).
 
 3. **Evaluation**:
-   - Follow instructions in the [Evaluation README](evaluation/README.md).
+   - Follow instructions in the [Evaluation README](source/Evaluation/README.md).
+
+## Quick Reproduction
+
+- To quickly reproduce the results from the contest, you can run the following command:
+
+1. Setup processedreference data
+
+```bash
+unzip reference.zip
+```
+
+2. Run the following command to reproduce the results:
+
+```bash
+python ./source/Model/my_retrieval.py \
+  --question_path ./dataset/preliminary/questions_preliminary.json \
+  --source_path ./reference \
+  --output_path ./dataset/preliminary/pred_retrieve.json \
+  --max_tasks 100
+```
+
+3. Place the prediction file in `./dataset/preliminary/`
+
+4. Run the following command to evaluate the results:
+
+```bash
+python ./source/Evaluation/calc_precision.py \
+  --predictions ./dataset/preliminary/pred_retrieve.json \
+  --ground_truth ./dataset/preliminary/{ground_truth}.json
+```
 
 ## Contributing
 
