@@ -108,7 +108,7 @@ def LLM_API(query: str, source_ids: list, corpus_dict: dict, category: str) -> s
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "user", "content": prompt}
             ],
