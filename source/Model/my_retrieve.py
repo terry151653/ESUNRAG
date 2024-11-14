@@ -79,21 +79,14 @@ def LLM_API(query: str, source_ids: list, corpus_dict: dict, category: str) -> s
     for file_id in source_ids:
         doc = corpus_dict.get(int(file_id))
         if doc:
-            if category == 'faq':
-                documents.append((file_id, doc))
-            else:
-                documents.append((file_id, doc['combined_responses'], doc['raw_text']))
+            documents.append((file_id, str(doc)))
         else:
             print(f"Warning: Document ID {file_id} not found in corpus.")
 
     # Build context for LLM
     context = ''
-    if category == 'faq':
-        for file_id, doc in documents:
-            context += f"文件 {file_id}:{{\n{{{doc}}}\n}}\n"
-    else:
-        for file_id, pages_text, raw_text in documents:
-            context += f"文件 {file_id}:{{\npages_text:\n{{{pages_text}}}\nraw_text:\n{{{raw_text}}}\n}}\n"
+    for file_id, doc in documents:
+        context += f"文件 {file_id}:\n{doc}\n\n"
 
     print(f"Built context with {len(context)} characters")
 
@@ -115,11 +108,11 @@ def LLM_API(query: str, source_ids: list, corpus_dict: dict, category: str) -> s
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=1000,
+            max_tokens=100,
             temperature=0,
             response_format={"type": "json_object"}
         )
